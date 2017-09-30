@@ -706,7 +706,7 @@ fleet "Large Human Merchants (Hai)"
 		"Hauler II" 2
 		"Water Bug"
 	variant 1
-		"Waterbug" 2
+		"Water Bug" 2
 		"Firebird (Hai Weapons)" 1
 	variant 3
 		"Aphid" 3
@@ -742,7 +742,7 @@ fleet "Small Free Worlds"
 	names "free worlds small"
 	cargo 1
 	personality
-		heroic disables frugal
+		heroic disables frugal opportunistic
 	variant 8
 		"Hawk"
 		"Sparrow"
@@ -787,7 +787,7 @@ fleet "Large Free Worlds"
 	names "free worlds capital"
 	cargo 1
 	personality
-		heroic disables frugal
+		heroic disables frugal opportunistic
 	variant 10
 		"Bastion"
 	variant 5
@@ -982,7 +982,7 @@ fleet "Small Republic"
 	names "republic small"
 	cargo 0
 	personality
-		heroic
+		heroic opportunistic
 	variant 6
 		"Rainmaker" 2
 	variant 5
@@ -1003,7 +1003,7 @@ fleet "Large Republic"
 	fighters "republic fighter"
 	cargo 0
 	personality
-		heroic
+		heroic opportunistic
 	variant 5
 		"Frigate" 2
 		"Rainmaker"
@@ -1044,7 +1044,7 @@ fleet "Navy Surveillance"
 	fighters "republic fighter"
 	cargo 0
 	personality
-		surveillance
+		surveillance opportunistic
 	variant 10
 		"Cruiser"
 		"Surveillance Drone" 4
@@ -1054,6 +1054,7 @@ fleet "Navy Surveillance"
 fleet "Small Deep"
 	government "Republic"
 	names "deep"
+	fighters "deep fighter"
 	cargo 0
 	personality
 		heroic
@@ -1189,12 +1190,96 @@ fleet "Large Deep"
 		"Star Queen"
 		"Raven (Afterburner)" 2
 
+fleet "Small Deep Military"
+	government "Republic"
+	names "deep"
+	fighters "deep fighter"
+	cargo 0
+	personality
+		heroic
+	variant 4
+		"Aerie"
+		"Dagger" 2
+	variant 3
+		"Raven"
+	variant 1
+		"Raven (Heavy)"
+	variant 1
+		"Raven (Afterburner)"
+	variant 3
+		"Headhunter"
+	variant 2
+		"Headhunter (Particle)"
+	variant 4
+		"Corvette"
+	variant 2
+		"Corvette (Speedy)"
+	variant 2
+		"Corvette (Missile)"
+
+fleet "Large Deep Military"
+	government "Republic"
+	names "deep"
+	fighters "deep fighter"
+	cargo 0
+	personality
+		heroic
+	variant 5
+		"Aerie"
+		"Dagger" 2
+		"Corvette"
+	variant 2
+		"Aerie"
+		"Dagger" 2
+		"Corvette (Missile)"
+	variant 2
+		"Aerie"
+		"Dagger" 2
+		"Corvette (Speedy)"
+	variant 3
+		"Aerie"
+		"Dagger" 2
+		"Raven"
+	variant 1
+		"Aerie"
+		"Dagger" 2
+		"Raven (Heavy)"
+	variant 1
+		"Aerie"
+		"Dagger" 2
+		"Raven (Afterburner)"
+	variant 4
+		"Raven" 2
+	variant 2
+		"Raven (Heavy)" 2
+	variant 3
+		"Headhunter" 2
+	variant 2
+		"Headhunter (Particle)" 2
+	variant 3
+		"Aerie" 2
+		"Dagger" 4
+	variant 8
+		"Corvette"
+		"Raven"
+	variant 4
+		"Corvette (Speedy)"
+		"Raven (Afterburner)"
+	variant 4
+		"Corvette (Missile)"
+		"Raven (Heavy)"
+	variant 5
+		"Corvette" 2
+	variant 3
+		"Corvette (Speedy)"
+		"Corvette (Missile)"
+
 fleet "Small Oathkeeper"
 	government "Navy (Oathkeeper)"
 	names "republic small"
 	cargo 0
 	personality
-		heroic
+		heroic opportunistic
 	variant 6
 		"Rainmaker" 2
 	variant 5
@@ -1215,7 +1300,7 @@ fleet "Large Oathkeeper"
 	fighters "republic fighter"
 	cargo 0
 	personality
-		heroic
+		heroic opportunistic
 	variant 5
 		"Frigate" 2
 		"Rainmaker"
@@ -1956,7 +2041,7 @@ fleet "Quarg"
 	names "quarg"
 	cargo 3
 	personality
-		forbearing
+		forbearing opportunistic
 	variant
 		"Quarg Skylark"
 	variant
@@ -1967,7 +2052,7 @@ fleet "Large Quarg"
 	names "quarg"
 	cargo 1
 	personality
-		forbearing
+		forbearing opportunistic
 	variant 2
 		"Quarg Skylark" 2
 		"Quarg Wardragon"
@@ -2447,3 +2532,64 @@ fleet "Marauder fleet X"
 		"Marauder Quicksilver"
 		"Marauder Arrow"
 		"Marauder Bounder"
+
+fleet "Hired Guns"
+	government "Bounty Hunter"
+	names "bounty hunter"
+	personality
+		nemesis waiting heroic
+	variant 1
+		"Leviathan (Laser)"
+		"Modified Argosy" 2
+	variant 1
+		"Leviathan (Laser)"
+		"Mule (Heavy)"
+		"Dagger"
+	variant 1
+		"Leviathan (Laser)"
+		"Corvette"
+	variant 1
+		"Leviathan (Laser)"
+		"Splinter (Laser)"
+	variant 1
+		"Falcon (Laser)"
+		"Modified Argosy" 2
+	variant 1
+		"Falcon (Laser)"
+		"Mule (Heavy)"
+		"Dagger"
+	variant 1
+		"Falcon (Laser)"
+		"Corvette"
+	variant 1
+		"Falcon (Laser)"
+		"Splinter (Laser)"
+	variant 1
+		"Vanguard (Particle)"
+		"Modified Argosy" 2
+	variant 1
+		"Vanguard (Particle)"
+		"Mule (Heavy)"
+		"Dagger"
+	variant 1
+		"Vanguard (Particle)"
+		"Corvette"
+	variant 1
+		"Vanguard (Particle)"
+		"Splinter (Laser)"
+	variant 1
+		"Bactrian (Hired Gun)"
+		"Dagger" 3
+		"Modified Argosy" 2
+	variant 1
+		"Bactrian (Hired Gun)"
+		"Mule (Heavy)"
+		"Dagger" 4
+	variant 1
+		"Bactrian (Hired Gun)"
+		"Dagger" 3
+		"Corvette"
+	variant 1
+		"Bactrian (Hired Gun)"
+		"Dagger" 3
+		"Splinter (Laser)"

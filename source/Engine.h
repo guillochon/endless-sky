@@ -97,18 +97,25 @@ private:
 	
 	class Status {
 	public:
-		Status(const Point &position, double shields, double hull, double radius, bool isEnemy);
+		Status(const Point &position, double outer, double inner, double radius, int type, double angle = 0.);
 		
 		Point position;
-		double shields;
-		double hull;
+		double outer;
+		double inner;
 		double radius;
-		bool isEnemy;
+		int type;
+		double angle;
 	};
 	
 	
 private:
 	PlayerInfo &player;
+	
+	std::list<std::shared_ptr<Ship>> ships;
+	std::list<Projectile> projectiles;
+	std::list<std::shared_ptr<Flotsam>> flotsam;
+	std::list<Effect> effects;
+	AsteroidField asteroids;
 	
 	AI ai;
 	
@@ -138,24 +145,15 @@ private:
 	const System *jumpInProgress[2] = {nullptr, nullptr};
 	const Sprite *highlightSprite = nullptr;
 	Point highlightUnit;
+	int highlightFrame = 0;
 	
 	int step = 0;
-	
-	std::list<std::shared_ptr<Ship>> ships;
-	std::list<Projectile> projectiles;
-	std::list<std::shared_ptr<Flotsam>> flotsam;
-	std::list<Effect> effects;
-	// Keep track of which ships we have not seen for long enough that it is
-	// time to stop tracking their movements.
-	std::map<std::list<Ship>::iterator, int> forget;
 	
 	std::list<ShipEvent> eventQueue;
 	std::list<ShipEvent> events;
 	// Keep track of who has asked for help in fighting whom.
 	std::map<const Government *, std::weak_ptr<const Ship>> grudge;
 	int grudgeTime = 0;
-	
-	AsteroidField asteroids;
 	
 	CollisionSet shipCollisions;
 	CollisionSet cloakedCollisions;

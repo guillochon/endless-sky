@@ -138,7 +138,8 @@ void LoadPanel::Draw()
 		{
 			const string &file = it.first;
 			Rectangle zone(point + Point(110., 7.), Point(230., 20.));
-			bool isHovering = (hasHover && zone.Contains(hoverPoint));
+			double alpha = min(1., max(0., min(.1 * (113. - point.Y()), .1 * (point.Y() - -167.))));
+			bool isHovering = (alpha && hasHover && zone.Contains(hoverPoint));
 			bool isHighlighted = (file == selectedFile || isHovering);
 			if(isHovering)
 			{
@@ -148,7 +149,6 @@ void LoadPanel::Draw()
 					hoverText = TimestampString(it.second);
 			}
 			
-			double alpha = min(1., max(0., min(.1 * (113. - point.Y()), .1 * (point.Y() - -167.))));
 			if(file == selectedFile)
 				FillShader::Fill(zone.Center(), zone.Dimensions(), Color(.1 * alpha, 0.));
 			size_t pos = file.find('~') + 1;
@@ -172,10 +172,8 @@ bool LoadPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 {
 	if(key == 'n')
 	{
-		GameData::Revert();
 		player.New();
 		
-		Messages::Reset();
 		ConversationPanel *panel = new ConversationPanel(
 			player, *GameData::Conversations().Get("intro"));
 		GetUI()->Push(panel);
@@ -304,8 +302,13 @@ bool LoadPanel::Click(int x, int y, int clicks)
 		if(filesIt == files.end())
 			return true;
 		for(const auto &it : filesIt->second)
-			if(i++ == selected && selectedFile != it.first)
+			if(i++ == selected)
+			{
 				selectedFile = it.first;
+				if(clicks > 1)
+					KeyDown('l', 0, Command());
+				break;
+			}
 	}
 	else
 		return false;
@@ -464,11 +467,8 @@ void LoadPanel::LoadCallback()
 	// its background thread is no longer running.
 	gamePanels.Reset();
 	
-	GameData::Revert();
 	player.Load(loadedInfo.Path());
-	player.ApplyChanges();
 	
-	Messages::Reset();
 	GetUI()->Pop(this);
 	GetUI()->Pop(GetUI()->Root().get());
 	gamePanels.Push(new MainPanel(player));
@@ -526,5 +526,6 @@ void LoadPanel::DeleteSave()
 		selectedFile = it->second.front().first;
 		selectedPilot = pilot;
 		loadedInfo.Load(Files::Saves() + selectedFile);
+		sideHasFocus = false;
 	}
 }

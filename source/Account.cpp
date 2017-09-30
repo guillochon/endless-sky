@@ -14,6 +14,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "DataNode.h"
 #include "DataWriter.h"
+#include "Format.h"
 
 #include <algorithm>
 #include <sstream>
@@ -23,7 +24,7 @@ using namespace std;
 namespace {
 	// For tracking the player's average income, store daily net worth over this
 	// number of days.
-	static const unsigned HISTORY = 100;
+	const unsigned HISTORY = 100;
 }
 
 
@@ -196,7 +197,7 @@ string Account::Step(int64_t assets, int64_t salaries)
 	// Keep track of your net worth over the last HISTORY days.
 	if(history.size() > HISTORY)
 		history.erase(history.begin());
-	history.push_back(credits + assets);
+	history.push_back(credits + assets - salariesOwed);
 	
 	// If you failed to pay any debt, your credit score drops. Otherwise, even
 	// if you have no debts, it increases. (Because, having no debts at all
@@ -212,21 +213,37 @@ string Account::Step(int64_t assets, int64_t salaries)
 	// If you made payments of all three types, the punctuation needs to
 	// include commas, so just handle that separately here.
 	if(salariesPaid && mortgagesPaid && finesPaid)
-		out << salariesPaid << " credits in crew salaries, " << mortgagesPaid
-			<< " in mortgages, and " << finesPaid << " in fines.";
+		out << Format::Number(salariesPaid) << " credits in crew salaries, " << Format::Number(mortgagesPaid)
+			<< " in mortgages, and " << Format::Number(finesPaid) << " in fines.";
 	else
 	{
 		if(salariesPaid)
-			out << salariesPaid << ((mortgagesPaid || finesPaid) ?
+			out << Format::Number(salariesPaid) << ((mortgagesPaid || finesPaid) ?
 				" credits in crew salaries and " : " credits in crew salaries.");
 		if(mortgagesPaid)
-			out << mortgagesPaid << (salariesPaid ? " " : " credits ")
+			out << Format::Number(mortgagesPaid) << (salariesPaid ? " " : " credits ")
 				<< (finesPaid ? "in mortgage payments and " : "in mortgage payments.");
 		if(finesPaid)
-			out << finesPaid << ((salariesPaid || mortgagesPaid) ?
+			out << Format::Number(finesPaid) << ((salariesPaid || mortgagesPaid) ?
 				" in fines." : " credits in fines.");
 	}
 	return out.str();
+}
+
+
+
+int64_t Account::SalariesOwed() const
+{
+	return salariesOwed;
+}
+
+
+
+void Account::PaySalaries(int64_t amount)
+{
+	amount = min(min(amount, salariesOwed), credits);
+	credits -= amount;
+	salariesOwed -= amount;
 }
 
 

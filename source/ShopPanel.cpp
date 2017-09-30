@@ -59,6 +59,10 @@ ShopPanel::ShopPanel(PlayerInfo &player, bool isOutfitter)
 
 void ShopPanel::Step()
 {
+	// If the player has acquired a second ship for the first time, explain to
+	// them how to reorder the ships in their fleet.
+	if(player.Ships().size() > 1)
+		DoHelp("multiple ships");
 	// Perform autoscroll to bring item details into view.
 	if(scrollDetailsIntoView && selectedBottomY > 0.)
 	{
@@ -83,6 +87,7 @@ void ShopPanel::Draw()
 	DrawSidebar();
 	DrawButtons();
 	DrawMain();
+	DrawKey();
 	
 	shipInfo.DrawTooltips();
 	outfitInfo.DrawTooltips();
@@ -129,14 +134,14 @@ void ShopPanel::DrawSidebar()
 		Screen::Top() + SIDE_WIDTH / 2 - sideScroll + 40 - 93);
 	
 	int shipsHere = 0;
-	for(shared_ptr<Ship> ship : player.Ships())
+	for(const shared_ptr<Ship> &ship : player.Ships())
 		shipsHere += !(ship->GetSystem() != player.GetSystem() || ship->IsDisabled());
 	if(shipsHere < 4)
 		point.X() += .5 * ICON_TILE * (4 - shipsHere);
 	
 	static const Color selected(.8, 1.);
 	static const Color unselected(.4, 1.);
-	for(shared_ptr<Ship> ship : player.Ships())
+	for(const shared_ptr<Ship> &ship : player.Ships())
 	{
 		// Skip any ships that are "absent" for whatever reason.
 		if(ship->GetSystem() != player.GetSystem() || ship->IsDisabled())
@@ -371,8 +376,9 @@ void ShopPanel::DrawMain()
 	nextY -= 40 + TILE_SIZE;
 	
 	// What amount would mainScroll have to equal to make nextY equal the
-	// bottom of the screen?
-	maxMainScroll = max(0., nextY + mainScroll - Screen::Height() / 2 - TILE_SIZE / 2);
+	// bottom of the screen? (Also leave space for the "key" at the bottom.)
+	maxMainScroll = max(0., nextY + mainScroll - Screen::Height() / 2 - TILE_SIZE / 2 + 40.);
+	mainScroll = min(mainScroll, maxMainScroll);
 	
 	PointerShader::Draw(Point(Screen::Right() - 10 - SIDE_WIDTH, Screen::Top() + 10),
 		Point(0., -1.), 10., 10., 5., Color(mainScroll > 0 ? .8 : .2, 0.));
@@ -391,8 +397,8 @@ void ShopPanel::DrawShip(const Ship &ship, const Point &center, bool isSelected)
 	float zoomSize = SHIP_SIZE - 60.f;
 	
 	// Draw the ship name.
-	const string &name = ship.Name().empty() ? ship.ModelName() : ship.Name();
 	const Font &font = FontSet::Get(14);
+	const string &name = ship.Name().empty() ? ship.ModelName() : font.TruncateMiddle(ship.Name(), SIDE_WIDTH - 61);
 	Point offset(-.5f * font.Width(name), -.5f * SHIP_SIZE + 10.f);
 	font.Draw(name, center + offset, *GameData::Colors().Get("bright"));
 	
@@ -400,7 +406,7 @@ void ShopPanel::DrawShip(const Ship &ship, const Point &center, bool isSelected)
 	if(sprite)
 	{
 		float zoom = min(1.f, zoomSize / max(sprite->Width(), sprite->Height()));
-		int swizzle = GameData::PlayerGovernment()->GetSwizzle();
+		int swizzle = ship.CustomSwizzle() >= 0 ? ship.CustomSwizzle() : GameData::PlayerGovernment()->GetSwizzle();
 		
 		SpriteShader::Draw(sprite, center, zoom, swizzle);
 	}
@@ -421,6 +427,12 @@ bool ShopPanel::CanSellMultiple() const
 
 
 
+void ShopPanel::DrawKey()
+{
+}
+
+
+
 // Only override the ones you need; the default action is to return false.
 bool ShopPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 {
@@ -431,7 +443,7 @@ bool ShopPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 		player.UpdateCargoCapacities();
 		GetUI()->Pop(this);
 	}
-	else if(key == 'b' || key == 'i')
+	else if(key == 'b' || (key == 'i' && selectedOutfit && player.Cargo().Get(selectedOutfit)))
 	{
 		if(!CanBuy())
 			FailBuy();
@@ -489,6 +501,29 @@ bool ShopPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 		return DoScroll(Screen::Bottom());
 	else if(key == SDLK_PAGEDOWN)
 		return DoScroll(Screen::Top());
+	else if(key >= '0' && key <= '9')
+	{
+		int group = key - '0';
+		if(mod & (KMOD_CTRL | KMOD_GUI))
+			player.SetGroup(group, &playerShips);
+		else if(mod & KMOD_SHIFT)
+		{
+			// If every single ship in this group is already selected, shift
+			// plus the group number means to deselect all those ships.
+			set<Ship *> added = player.GetGroup(group);
+			bool allWereSelected = true;
+			for(Ship *ship : added)
+				allWereSelected &= playerShips.erase(ship);
+			
+			if(allWereSelected)
+				added.clear();
+			
+			for(Ship *ship : added)
+				playerShips.insert(ship);
+		}
+		else
+			playerShips = player.GetGroup(group);
+	}
 	else
 		return false;
 	
@@ -677,6 +712,30 @@ bool ShopPanel::Scroll(double dx, double dy)
 
 
 
+int64_t ShopPanel::LicenseCost(const Outfit *outfit) const
+{
+	// Don't require a license for an outfit that you have in cargo or that you
+	// just sold to the outfitter. (Otherwise, there would be no way to transfer
+	// a restricted plundered outfit between ships or from cargo to a ship.)
+	if(player.Cargo().Get(outfit) || player.Stock(outfit) > 0)
+		return 0;
+	
+	const Sale<Outfit> &available = player.GetPlanet()->Outfitter();
+	
+	int64_t cost = 0;
+	for(const string &name : outfit->Licenses())
+		if(!player.GetCondition("license: " + name))
+		{
+			const Outfit *license = GameData::Outfits().Find(name + " License");
+			if(!license || !license->Cost() || !available.Has(license))
+				return -1;
+			cost += license->Cost();
+		}
+	return cost;
+}
+
+
+
 ShopPanel::Zone::Zone(Point center, Point size, const Ship *ship, double scrollY)
 	: ClickZone(center, size, ship), scrollY(scrollY)
 {
@@ -752,7 +811,7 @@ void ShopPanel::SideSelect(int count)
 				it = player.Ships().end();
 			--it;
 			
-			if((*it)->GetSystem() == player.GetSystem())
+			if((*it)->GetSystem() == player.GetSystem() && !(*it)->IsDisabled())
 				++count;
 		}
 	}
@@ -764,7 +823,7 @@ void ShopPanel::SideSelect(int count)
 			if(it == player.Ships().end())
 				it = player.Ships().begin();
 			
-			if((*it)->GetSystem() == player.GetSystem())
+			if((*it)->GetSystem() == player.GetSystem() && !(*it)->IsDisabled())
 				--count;
 		}
 	}
@@ -781,10 +840,10 @@ void ShopPanel::SideSelect(Ship *ship)
 	if(shift)
 	{
 		bool on = false;
-		for(shared_ptr<Ship> other : player.Ships())
+		for(const shared_ptr<Ship> &other : player.Ships())
 		{
 			// Skip any ships that are "absent" for whatever reason.
-			if(other->GetSystem() != player.GetSystem())
+			if(other->GetSystem() != player.GetSystem() || other->IsDisabled())
 				continue;
 			
 			if(other.get() == ship || other.get() == playerShip)

@@ -25,9 +25,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Planet.h"
 #include "PlayerInfo.h"
 #include "Point.h"
-#include "Preferences.h"
 #include "Screen.h"
 #include "Ship.h"
+#include "Sprite.h"
 #include "SpriteSet.h"
 #include "SpriteShader.h"
 #include "UI.h"
@@ -50,7 +50,7 @@ namespace {
 OutfitterPanel::OutfitterPanel(PlayerInfo &player)
 	: ShopPanel(player, true)
 {
-	for(const pair<string, Outfit> &it : GameData::Outfits())
+	for(const pair<const string, Outfit> &it : GameData::Outfits())
 		catalog[it.second.Category()].insert(it.first);
 	
 	if(player.GetPlanet())
@@ -62,11 +62,7 @@ OutfitterPanel::OutfitterPanel(PlayerInfo &player)
 void OutfitterPanel::Step()
 {
 	CheckRefill();
-	if(!Preferences::Has("help: outfitter"))
-	{
-		Preferences::Set("help: outfitter");
-		GetUI()->Push(new Dialog(GameData::HelpMessage("outfitter")));
-	}
+	DoHelp("outfitter");
 	ShopPanel::Step();
 }
 
@@ -92,7 +88,10 @@ int OutfitterPanel::DrawPlayerShipInfo(const Point &point)
 bool OutfitterPanel::HasItem(const string &name) const
 {
 	const Outfit *outfit = GameData::Outfits().Get(name);
-	if(outfitter.Has(outfit) || player.Stock(outfit) > 0 || player.Cargo().Get(outfit))
+	if((outfitter.Has(outfit) || player.Stock(outfit) > 0) && showForSale)
+		return true;
+	
+	if(player.Cargo().Get(outfit) && (!playerShip || showForSale))
 		return true;
 	
 	for(const Ship *ship : playerShips)
@@ -149,18 +148,24 @@ void OutfitterPanel::DrawItem(const string &name, const Point &point, int scroll
 			font.Draw(label, labelPos, bright);
 		}
 	}
-	if(player.Cargo().Get(outfit))
-	{
-		string count = "in cargo: " + to_string(player.Cargo().Get(outfit));
-		Point pos = point + Point(
-			OUTFIT_SIZE / 2 - 20 - font.Width(count),
-			OUTFIT_SIZE / 2 - 24);
-		font.Draw(count, pos, bright);
-	}
+	// Don't show the "in stock" amount if the outfit has an unlimited stock or
+	// if it is not something that you can buy.
+	int stock = 0;
+	if(!outfitter.Has(outfit) && outfit->Get("installable") >= 0.)
+		stock = max(0, player.Stock(outfit));
+	int cargo = player.Cargo().Get(outfit);
+	
+	string message;
+	if(cargo && stock)
+		message = "in cargo: " + to_string(cargo) + ", in stock: " + to_string(stock);
+	else if(cargo)
+		message = "in cargo: " + to_string(cargo);
+	else if(stock)
+		message = "in stock: " + to_string(stock);
 	else if(!outfitter.Has(outfit))
+		message = "(not sold here)";
+	if(!message.empty())
 	{
-		string message = (player.Stock(outfit) > 0 ?
-			"in stock: " + to_string(player.Stock(outfit)) : "(not sold here)");
 		Point pos = point + Point(
 			OUTFIT_SIZE / 2 - 20 - font.Width(message),
 			OUTFIT_SIZE / 2 - 24);
@@ -186,6 +191,9 @@ int OutfitterPanel::DetailWidth() const
 
 int OutfitterPanel::DrawDetails(const Point &center)
 {
+	if(!selectedOutfit)
+		return 0;
+	
 	outfitInfo.Update(*selectedOutfit, player, CanSell());
 	Point offset(outfitInfo.PanelWidth(), 0.);
 	
@@ -211,8 +219,14 @@ bool OutfitterPanel::CanBuy() const
 	if(mapSize > 0 && HasMapped(mapSize))
 		return false;
 	
-	// If you have this in your cargo hold, installing it is free.
+	// Determine what you will have to pay to buy this outfit.
 	int64_t cost = player.StockDepreciation().Value(selectedOutfit, day);
+	// Check that the player has any necessary licenses.
+	int64_t licenseCost = LicenseCost(selectedOutfit);
+	if(licenseCost < 0)
+		return false;
+	cost += licenseCost;
+	// If you have this in your cargo hold, installing it is free.
 	if(cost > player.Accounts().Credits() && !isInCargo)
 		return false;
 	
@@ -236,6 +250,15 @@ bool OutfitterPanel::CanBuy() const
 
 void OutfitterPanel::Buy()
 {
+	int64_t licenseCost = LicenseCost(selectedOutfit);
+	if(licenseCost)
+	{
+		player.Accounts().AddCredits(-licenseCost);
+		for(const string &licenseName : selectedOutfit->Licenses())
+			if(!player.GetCondition("license: " + licenseName))
+				player.Conditions()["license: " + licenseName] = true;
+	}
+	
 	int modifier = Modifier();
 	for(int i = 0; i < modifier && CanBuy(); ++i)
 	{
@@ -246,9 +269,9 @@ void OutfitterPanel::Buy()
 			if(!HasMapped(mapSize))
 			{
 				DistanceMap distance(player.GetSystem(), mapSize);
-				for(const auto &it : distance.Distances())
-					if(!player.HasVisited(it.first))
-						player.Visit(it.first);
+				for(const System *system : distance.Systems())
+					if(!player.HasVisited(system))
+						player.Visit(system);
 				int64_t price = player.StockDepreciation().Value(selectedOutfit, day);
 				player.Accounts().AddCredits(-price);
 			}
@@ -323,7 +346,7 @@ void OutfitterPanel::Buy()
 
 void OutfitterPanel::FailBuy() const
 {
-	if(!selectedOutfit || !playerShip)
+	if(!selectedOutfit)
 		return;
 	
 	int64_t cost = player.StockDepreciation().Value(selectedOutfit, day);
@@ -336,6 +359,21 @@ void OutfitterPanel::FailBuy() const
 			+ Format::Number(credits) + "."));
 		return;
 	}
+	// Check that the player has any necessary licenses.
+	int64_t licenseCost = LicenseCost(selectedOutfit);
+	if(licenseCost < 0)
+	{
+		GetUI()->Push(new Dialog(
+			"You cannot buy this outfit, because it requires a license that you don't have."));
+		return;
+	}
+	if(!isInCargo && cost + licenseCost > credits)
+	{
+		GetUI()->Push(new Dialog(
+			"You don't have enough money to buy this outfit, because it will cost you an extra "
+			+ Format::Number(licenseCost) + " credits to buy the necessary licenses."));
+		return;
+	}
 	
 	if(!(outfitter.Has(selectedOutfit) || player.Stock(selectedOutfit) > 0 || isInCargo))
 	{
@@ -344,6 +382,23 @@ void OutfitterPanel::FailBuy() const
 			"but this " + planet->Noun() + " does not sell them."));
 		return;
 	}
+	
+	if(selectedOutfit->Get("map"))
+	{
+		GetUI()->Push(new Dialog("You have already mapped all the systems shown by this map, "
+			"so there is no reason to buy another."));
+		return;
+	}
+	
+	if(HasLicense(selectedOutfit->Name()))
+	{
+		GetUI()->Push(new Dialog("You already have one of these licenses, "
+			"so there is no reason to buy another."));
+		return;
+	}
+	
+	if(!playerShip)
+		return;
 	
 	double outfitNeeded = -selectedOutfit->Get("outfit space");
 	double outfitSpace = playerShip->Attributes().Get("outfit space");
@@ -419,20 +474,6 @@ void OutfitterPanel::FailBuy() const
 			"because it would reduce one of your ship's attributes to a negative amount. "
 			"For example, perhaps it uses up more cargo space than you have left, "
 			"or has a constant energy draw greater than what your ship produces."));
-		return;
-	}
-	
-	if(selectedOutfit->Get("map"))
-	{
-		GetUI()->Push(new Dialog("You have already mapped all the systems shown by this map, "
-			"so there is no reason to buy another."));
-		return;
-	}
-	
-	if(HasLicense(selectedOutfit->Name()))
-	{
-		GetUI()->Push(new Dialog("You already have one of these licenses, "
-			"so there is no reason to buy another."));
 		return;
 	}
 }
@@ -528,7 +569,7 @@ void OutfitterPanel::FailSell() const
 		GetUI()->Push(new Dialog("You cannot sell licenses. Once you buy one, it is yours permanently."));
 	else
 	{
-		bool hasOutfit = false;
+		bool hasOutfit = player.Cargo().Get(selectedOutfit);
 		for(const Ship *ship : playerShips)
 			if(ship->OutfitCount(selectedOutfit))
 			{
@@ -575,7 +616,15 @@ bool OutfitterPanel::FlightCheck()
 			continue;
 		
 		const Outfit &attributes = ship->Attributes();
-		double energy = attributes.Get("energy generation") + attributes.Get("energy capacity");
+		double energy = attributes.Get("energy generation") - attributes.Get("energy consumption");
+		energy += attributes.Get("solar collection");
+		energy += attributes.Get("energy capacity");
+		if(energy < 0.)
+		{
+			GetUI()->Push(new ConversationPanel(player,
+				*GameData::Conversations().Get("flight check: no energy"), nullptr, ship.get()));
+			return false;			
+		}
 		if(!attributes.Get("thrust") && !attributes.Get("reverse thrust")
 				&& !attributes.Get("afterburner thrust"))
 		{
@@ -601,6 +650,15 @@ bool OutfitterPanel::FlightCheck()
 				*GameData::Conversations().Get("flight check: no steering energy"), nullptr, ship.get()));
 			return false;
 		}
+		// Check energy balance with solar collection at infinite distance from a star (only 20% of
+		// maximum solar collection).
+		energy -= .8 * attributes.Get("solar collection");
+		if(attributes.Get("thrusting energy") > energy || attributes.Get("turning energy") > energy)
+		{
+			GetUI()->Push(new ConversationPanel(player,
+				*GameData::Conversations().Get("flight check: solar power warning"), nullptr, ship.get()));
+			return true;
+		}			
 		if(ship->IdleHeat() >= 100. * ship->Mass())
 		{
 			GetUI()->Push(new ConversationPanel(player,
@@ -609,6 +667,49 @@ bool OutfitterPanel::FlightCheck()
 		}
 	}
 	return true;
+}
+
+
+
+void OutfitterPanel::DrawKey()
+{
+	const Sprite *back = SpriteSet::Get("ui/outfitter key");
+	SpriteShader::Draw(back, Screen::BottomLeft() + .5 * Point(back->Width(), -back->Height()));
+	
+	Font font = FontSet::Get(14);
+	Color color[2] = {*GameData::Colors().Get("medium"), *GameData::Colors().Get("bright")};
+	const Sprite *box[2] = {SpriteSet::Get("ui/unchecked"), SpriteSet::Get("ui/checked")};
+	
+	Point pos = Screen::BottomLeft() + Point(10., -30.);
+	Point off = Point(10., -.5 * font.Height());
+	SpriteShader::Draw(box[showForSale], pos);
+	font.Draw("Show outfits for sale", pos + off, color[showForSale]);
+	AddZone(Rectangle(pos + Point(80., 0.), Point(180., 20.)), [this](){ showForSale = !showForSale; });
+	
+	bool showCargo = !playerShip;
+	pos.Y() += 20.;
+	SpriteShader::Draw(box[showCargo], pos);
+	font.Draw("Show outfits in cargo", pos + off, color[showCargo]);
+	AddZone(Rectangle(pos + Point(80., 0.), Point(180., 20.)), [this](){
+		if(playerShip)
+		{
+			previousShip = playerShip;
+			playerShip = nullptr;
+			previousShips = playerShips;
+			playerShips.clear();
+		}
+		else if(previousShip)
+		{
+			playerShip = previousShip;
+			playerShips = previousShips;
+		}
+		else
+		{
+			playerShip = player.Flagship();
+			if(playerShip)
+				playerShips.insert(playerShip);
+		}
+	});
 }
 
 
@@ -640,7 +741,7 @@ bool OutfitterPanel::ShipCanSell(const Ship *ship, const Outfit *outfit)
 }
 
 
-	
+
 void OutfitterPanel::DrawOutfit(const Outfit &outfit, const Point &center, bool isSelected, bool isOwned)
 {
 	const Sprite *thumbnail = outfit.Thumbnail();
@@ -661,8 +762,8 @@ void OutfitterPanel::DrawOutfit(const Outfit &outfit, const Point &center, bool 
 bool OutfitterPanel::HasMapped(int mapSize) const
 {
 	DistanceMap distance(player.GetSystem(), mapSize);
-	for(const auto &it : distance.Distances())
-		if(!player.HasVisited(it.first))
+	for(const System *system : distance.Systems())
+		if(!player.HasVisited(system))
 			return false;
 	
 	return true;

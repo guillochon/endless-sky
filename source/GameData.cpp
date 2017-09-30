@@ -87,6 +87,7 @@ namespace {
 	Set<Government> defaultGovernments;
 	Set<Planet> defaultPlanets;
 	Set<System> defaultSystems;
+	Set<Galaxy> defaultGalaxies;
 	Set<Sale<Ship>> defaultShipSales;
 	Set<Sale<Outfit>> defaultOutfitSales;
 	
@@ -97,6 +98,7 @@ namespace {
 	map<const System *, map<string, int>> purchases;
 	
 	map<const Sprite *, string> landingMessages;
+	vector<string> ratingLevels;
 	
 	StarField background;
 	
@@ -173,15 +175,16 @@ void GameData::BeginLoad(const char * const *argv)
 	UpdateNeighbors();
 	// And, update the ships with the outfits we've now finished loading.
 	for(auto &it : ships)
-		it.second.FinishLoading();
+		it.second.FinishLoading(true);
 	for(const auto &it : persons)
-		it.second.GetShip()->FinishLoading();
+		it.second.GetShip()->FinishLoading(true);
 	
 	// Store the current state, to revert back to later.
 	defaultFleets = fleets;
 	defaultGovernments = governments;
 	defaultPlanets = planets;
 	defaultSystems = systems;
+	defaultGalaxies = galaxies;
 	defaultShipSales = shipSales;
 	defaultOutfitSales = outfitSales;
 	playerGovernment = governments.Get("Escort");
@@ -192,6 +195,28 @@ void GameData::BeginLoad(const char * const *argv)
 		PrintShipTable();
 	if(printWeapons)
 		PrintWeaponTable();
+}
+
+
+
+// Check for objects that are referred to but never defined.
+void GameData::CheckReferences()
+{
+	for(const auto &it : effects)
+		if(it.second.Name().empty())
+			Files::LogError("Warning: effect \"" + it.first + "\" is referred to, but never defined.");
+	for(const auto &it : fleets)
+		if(!it.second.GetGovernment())
+			Files::LogError("Warning: fleet \"" + it.first + "\" is referred to, but never defined.");
+	for(const auto &it : governments)
+		if(it.second.GetName().empty())
+			Files::LogError("Warning: government \"" + it.first + "\" is referred to, but never defined.");
+	for(const auto &it : outfits)
+		if(it.second.Name().empty())
+			Files::LogError("Warning: outfit \"" + it.first + "\" is referred to, but never defined.");
+	for(const auto &it : systems)
+		if(it.second.Name().empty())
+			Files::LogError("Warning: system \"" + it.first + "\" is referred to, but never defined.");
 }
 
 
@@ -295,6 +320,7 @@ void GameData::Revert()
 	governments.Revert(defaultGovernments);
 	planets.Revert(defaultPlanets);
 	systems.Revert(defaultSystems);
+	galaxies.Revert(defaultGalaxies);
 	shipSales.Revert(defaultShipSales);
 	outfitSales.Revert(defaultOutfitSales);
 	for(auto &it : persons)
@@ -406,7 +432,7 @@ void GameData::StepEconomy()
 	for(auto &it : systems)
 	{
 		System &system = it.second;
-		if(system.Links().size())
+		if(!system.Links().empty())
 			for(const Trade::Commodity &commodity : trade.Commodities())
 			{
 				double supply = system.Supply(commodity.name);
@@ -436,6 +462,8 @@ void GameData::Change(const DataNode &node)
 {
 	if(node.Token(0) == "fleet" && node.Size() >= 2)
 		fleets.Get(node.Token(1))->Load(node);
+	else if(node.Token(0) == "galaxy" && node.Size() >= 2)
+		galaxies.Get(node.Token(1))->Load(node);
 	else if(node.Token(0) == "government" && node.Size() >= 2)
 		governments.Get(node.Token(1))->Load(node);
 	else if(node.Token(0) == "outfitter" && node.Size() >= 2)
@@ -450,6 +478,8 @@ void GameData::Change(const DataNode &node)
 		systems.Get(node.Token(1))->Link(systems.Get(node.Token(2)));
 	else if(node.Token(0) == "unlink" && node.Size() >= 3)
 		systems.Get(node.Token(1))->Unlink(systems.Get(node.Token(2)));
+	else
+		node.PrintTrace("Invalid \"event\" data:");
 }
 
 
@@ -631,6 +661,14 @@ const string &GameData::LandingMessage(const Sprite *sprite)
 
 
 
+// Strings for combat rating levels.
+const vector<string> &GameData::CombatRatings()
+{
+	return ratingLevels;
+}
+
+
+
 const StarField &GameData::Background()
 {
 	return background;
@@ -789,6 +827,12 @@ void GameData::LoadFile(const string &path, bool debugMode)
 			for(const DataNode &child : node)
 				landingMessages[SpriteSet::Get(child.Token(0))] = node.Token(1);
 		}
+		else if(key == "combat ratings")
+		{
+			ratingLevels.clear();
+			for(const DataNode &child : node)
+				ratingLevels.push_back(child.Token(0));
+		}
 		else if((key == "tip" || key == "help") && node.Size() >= 2)
 		{
 			string &text = (key == "tip" ? tooltips : helpMessages)[node.Token(1)];
@@ -927,7 +971,7 @@ void GameData::PrintWeaponTable()
 	for(auto &it : outfits)
 	{
 		// Skip non-weapons and submunitions.
-		if(!it.second.IsWeapon() || !it.second.Reload())
+		if(!it.second.IsWeapon() || it.second.Category().empty())
 			continue;
 		
 		const Outfit &outfit = it.second;

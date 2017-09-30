@@ -19,6 +19,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "PlayerInfo.h"
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 #include <set>
 #include <sstream>
@@ -26,35 +27,47 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 using namespace std;
 
 namespace {
-	static const set<string> ATTRIBUTES_TO_SCALE = {
-		"active cooling",
-		"afterburner energy",
-		"afterburner fuel",
-		"afterburner heat",
-		"cloaking energy",
-		"cloaking fuel",
-		"cooling",
-		"cooling energy",
-		"energy generation",
-		"heat generation",
-		"hull repair rate",
-		"hull energy",
-		"hull heat",
-		"reverse thrusting energy",
-		"reverse thrusting heat",
-		"shield generation",
-		"shield energy",
-		"shield heat",
-		"solar collection",
-		"thrusting energy",
-		"thrusting heat",
-		"turn",
-		"turning energy",
-		"turning heat"
+	const map<string, double> SCALE = {
+		{"active cooling", 60.},
+		{"afterburner energy", 60.},
+		{"afterburner fuel", 60.},
+		{"afterburner heat", 60.},
+		{"cloaking energy", 60.},
+		{"cloaking fuel", 60.},
+		{"cooling", 60.},
+		{"cooling energy", 60.},
+		{"energy consumption", 60.},
+		{"energy generation", 60.},
+		{"heat generation", 60.},
+		{"hull repair rate", 60.},
+		{"hull energy", 60.},
+		{"hull heat", 60.},
+		{"reverse thrusting energy", 60.},
+		{"reverse thrusting heat", 60.},
+		{"shield generation", 60.},
+		{"shield energy", 60.},
+		{"shield heat", 60.},
+		{"solar collection", 60.},
+		{"thrusting energy", 60.},
+		{"thrusting heat", 60.},
+		{"turn", 60.},
+		{"turning energy", 60.},
+		{"turning heat", 60.},
+		
+		{"thrust", 60. * 60.},
+		{"reverse thrust", 60. * 60.},
+		{"afterburner thrust", 60. * 60.},
+		
+		{"ion resistance", 60. * 100.},
+		{"disruption resistance", 60. * 100.},
+		{"slowing resistance", 60. * 100.}
 	};
 	
-	static const set<string> BOOLEAN_ATTRIBUTES = {
-		"unplunderable"
+	const map<string, string> BOOLEAN_ATTRIBUTES = {
+		{"unplunderable", "This outfit cannot be plundered."},
+		{"installable", "This is not an installable item."},
+		{"hyperdrive", "Allows you to make hyperjumps."},
+		{"jump drive", "Lets you jump to any nearby system."}
 	};
 }
 
@@ -70,7 +83,7 @@ OutfitInfoDisplay::OutfitInfoDisplay(const Outfit &outfit, const PlayerInfo &pla
 // Call this every time the ship changes.
 void OutfitInfoDisplay::Update(const Outfit &outfit, const PlayerInfo &player, bool canSell)
 {
-	UpdateDescription(outfit.Description());
+	UpdateDescription(outfit.Description(), outfit.Licenses(), false);
 	UpdateRequirements(outfit, player, canSell);
 	UpdateAttributes(outfit);
 	
@@ -129,23 +142,22 @@ void OutfitInfoDisplay::UpdateRequirements(const Outfit &outfit, const PlayerInf
 		requirementsHeight += 20;
 	}
 	
-	static const string names[] = {
+	static const vector<string> NAMES = {
 		"outfit space needed:", "outfit space",
 		"weapon capacity needed:", "weapon capacity",
 		"engine capacity needed:", "engine capacity",
 		"gun ports needed:", "gun ports",
 		"turret mounts needed:", "turret mounts"
 	};
-	static const int NAMES =  sizeof(names) / sizeof(names[0]);
-	for(int i = 0; i + 1 < NAMES; i += 2)
-		if(outfit.Get(names[i + 1]))
+	for(unsigned i = 0; i + 1 < NAMES.size(); i += 2)
+		if(outfit.Get(NAMES[i + 1]))
 		{
 			requirementLabels.push_back(string());
 			requirementValues.push_back(string());
 			requirementsHeight += 10;
 		
-			requirementLabels.push_back(names[i]);
-			requirementValues.push_back(Format::Number(-outfit.Get(names[i + 1])));
+			requirementLabels.push_back(NAMES[i]);
+			requirementValues.push_back(Format::Number(-outfit.Get(NAMES[i + 1])));
 			requirementsHeight += 20;
 		}
 }
@@ -167,22 +179,14 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 			continue;
 		
 		string value;
-		double scale = 1.;
-		if(it.first == "thrust" || it.first == "reverse thrust" || it.first == "afterburner thrust")
-			scale = 60. * 60.;
-		else if(ATTRIBUTES_TO_SCALE.count(it.first))
-			scale = 60.;
+		auto sit = SCALE.find(it.first);
+		double scale = (sit == SCALE.end() ? 1. : sit->second);
 		
-		if(BOOLEAN_ATTRIBUTES.count(it.first)) 
+		auto bit = BOOLEAN_ATTRIBUTES.find(it.first);
+		if(bit != BOOLEAN_ATTRIBUTES.end()) 
 		{
-			attributeLabels.push_back("This outfit is " + it.first + ".");
-			attributeValues.push_back("");
-			attributesHeight += 20;
-		}
-		else if(it.first == "installable" && it.second < 0)
-		{
-			attributeLabels.push_back("This is not an installable item.");
-			attributeValues.push_back("");
+			attributeLabels.push_back(bit->second);
+			attributeValues.push_back(" ");
 			attributesHeight += 20;
 		}
 		else
@@ -282,6 +286,13 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 		attributeValues.push_back(Format::Number(60. / outfit.Reload()));
 	attributesHeight += 20;
 	
+	double turretTurn = outfit.TurretTurn() * 60.;
+	if(turretTurn)
+	{
+		attributeLabels.push_back("turret turn rate:");
+		attributeValues.push_back(Format::Number(turretTurn));
+		attributesHeight += 20;
+	}
 	int homing = outfit.Homing();
 	if(homing)
 	{
@@ -296,25 +307,25 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 		attributeValues.push_back(skill[max(0, min(4, homing))]);
 		attributesHeight += 20;
 	}
-	static const string percentNames[] = {
+	static const vector<string> PERCENT_NAMES = {
 		"tracking:",
 		"optical tracking:",
 		"infrared tracking:",
 		"radar tracking:",
 		"piercing:"
 	};
-	double percentValues[] = {
+	vector<double> percentValues = {
 		outfit.Tracking(),
 		outfit.OpticalTracking(),
 		outfit.InfraredTracking(),
 		outfit.RadarTracking(),
 		outfit.Piercing()
 	};
-	for(unsigned i = 0; i < sizeof(percentValues) / sizeof(percentValues[0]); ++i)
+	for(unsigned i = 0; i < PERCENT_NAMES.size(); ++i)
 		if(percentValues[i])
 		{
-			int percent = 100. * percentValues[i] + .5;
-			attributeLabels.push_back(percentNames[i]);
+			int percent = lround(100. * percentValues[i]);
+			attributeLabels.push_back(PERCENT_NAMES[i]);
 			attributeValues.push_back(Format::Number(percent) + "%");
 			attributesHeight += 20;
 		}
@@ -323,7 +334,7 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 	attributeValues.push_back(string());
 	attributesHeight += 10;
 	
-	static const string names[] = {
+	static const vector<string> OTHER_NAMES = {
 		"shield damage / shot:",
 		"hull damage / shot:",
 		"heat damage / shot:",
@@ -338,7 +349,7 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 		"missile strength:",
 		"anti-missile:",
 	};
-	double values[] = {
+	vector<double> values = {
 		outfit.ShieldDamage(),
 		outfit.HullDamage(),
 		outfit.HeatDamage(),
@@ -353,11 +364,10 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 		static_cast<double>(outfit.MissileStrength()),
 		static_cast<double>(outfit.AntiMissile())
 	};
-	static const int NAMES = sizeof(names) / sizeof(names[0]);
-	for(int i = (isContinuous ? 9 : 0); i < NAMES; ++i)
+	for(unsigned i = (isContinuous ? 9 : 0); i < OTHER_NAMES.size(); ++i)
 		if(values[i])
 		{
-			attributeLabels.push_back(names[i]);
+			attributeLabels.push_back(OTHER_NAMES[i]);
 			attributeValues.push_back(Format::Number(values[i]));
 			attributesHeight += 20;
 		}

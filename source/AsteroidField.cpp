@@ -25,7 +25,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 using namespace std;
 
 namespace {
-	static const double WRAP = 4096.;
+	const double WRAP = 4096.;
 }
 
 
@@ -52,7 +52,7 @@ void AsteroidField::Add(const string &name, int count, double energy)
 void AsteroidField::Add(const Minable *minable, int count, double energy, double beltRadius)
 {
 	// Double check that the given asteroid is defined.
-	if(!minable)
+	if(!minable || !minable->GetMask().IsLoaded())
 		return;
 	
 	// Place copies of the given minable asteroid throughout the system.
