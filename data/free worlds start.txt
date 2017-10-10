@@ -794,6 +794,8 @@ mission "FW Plasma Testing 1B"
 
 mission "plasma turret available"
 	landing
+	source
+		near Kraz 1 1000
 	to offer
 		has "event: plasma turret available"
 	on offer
@@ -822,7 +824,7 @@ mission "FW Supply Convoy 1"
 	
 	on offer
 		conversation
-			`In the spaceport, you meet up with a woman wearing a militia uniform and carrying a clipboard. "Are you Captain <last>?" she asks. You nod. "We have a large shipment of weapons and equipment that needs to go to the militia base on <planet>. Your job is to make sure none of these ships get... lost in transit." She points to a large landing pad where you count ten Star Barges lines up next to each other.`
+			`In the spaceport, you meet up with a woman wearing a militia uniform and carrying a clipboard. "Are you Captain <last>?" she asks. You nod. "We have a large shipment of weapons and equipment that needs to go to the militia base on <planet>. Your job is to make sure none of these ships get... lost in transit." She points to a large landing pad where you count ten Star Barges lined up next to each other.`
 			choice
 				`	"Isn't it risky to transport valuable cargo in such flimsy and vulnerable ships?"`
 					goto risky
@@ -1040,6 +1042,8 @@ mission "FW Flamethrower 1"
 	landing
 	name "Weapon Testing"
 	description "When you have time, report to <destination>, where Barmy Edward has another weapon he would like you to test."
+	source
+		near Kraz 1 1000
 	destination Rust
 	to offer
 		has "event: plasma turret available"

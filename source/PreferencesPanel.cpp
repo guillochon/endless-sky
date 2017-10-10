@@ -438,7 +438,9 @@ void PreferencesPanel::DrawSettings()
 		"Show hyperspace flash",
 		"\n",
 		"Other",
+		"Clickable radar display",
 		REACTIVATE_HELP,
+		"Rehire extra crew when lost",
 		SCROLL_SPEED,
 		"Warning siren",
 		"Hide unexplored map regions"
