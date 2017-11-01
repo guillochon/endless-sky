@@ -27,6 +27,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Rectangle.h"
 #include "Ship.h"
 #include "ShipEvent.h"
+#include "Visual.h"
 
 #include <condition_variable>
 #include <list>
@@ -81,6 +82,22 @@ private:
 	
 	void ThreadEntryPoint();
 	void CalculateStep();
+	
+	void MoveShip(const std::shared_ptr<Ship> &ship);
+	
+	void SpawnFleets();
+	void SpawnPersons();
+	void SendHails();
+	void HandleMouseClicks();
+	
+	void FillCollisionSets();
+	
+	void DoCollisions(Projectile &projectile);
+	void DoCollection(Flotsam &flotsam);
+	void DoScanning(const std::shared_ptr<Ship> &ship);
+	
+	void FillRadar();
+	
 	void AddSprites(const Ship &ship);
 	
 	void DoGrudge(const std::shared_ptr<Ship> &target, const Government *attacker);
@@ -112,10 +129,19 @@ private:
 	PlayerInfo &player;
 	
 	std::list<std::shared_ptr<Ship>> ships;
-	std::list<Projectile> projectiles;
+	std::vector<Projectile> projectiles;
 	std::list<std::shared_ptr<Flotsam>> flotsam;
-	std::list<Effect> effects;
+	std::vector<Visual> visuals;
 	AsteroidField asteroids;
+	
+	// New objects created within the latest step:
+	std::list<std::shared_ptr<Ship>> newShips;
+	std::vector<Projectile> newProjectiles;
+	std::list<std::shared_ptr<Flotsam>> newFlotsam;
+	std::vector<Visual> newVisuals;
+	
+	// Track which ships currently have anti-missiles ready to fire.
+	std::vector<Ship *> hasAntiMissile;
 	
 	AI ai;
 	
@@ -137,6 +163,7 @@ private:
 	std::vector<Target> targets;
 	Point targetAngle;
 	Point targetUnit;
+	int targetSwizzle = -1;
 	EscortDisplay escorts;
 	std::vector<Status> statuses;
 	std::vector<PlanetLabel> labels;

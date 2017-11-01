@@ -1751,7 +1751,7 @@ void PlayerInfo::Visit(const System *system)
 
 
 
-// Mark the given system as visited, and mark all its neighbors as seen.
+// Mark the given planet as visited.
 void PlayerInfo::Visit(const Planet *planet)
 {
 	if(planet && !planet->TrueName().empty())
@@ -2230,6 +2230,7 @@ void PlayerInfo::UpdateAutoConditions()
 	// Set a condition for the player's net worth. Limit it to the range of a 32-bit int.
 	static const int64_t limit = 2000000000;
 	conditions["net worth"] = min(limit, max(-limit, accounts.NetWorth()));
+	conditions["credits"] = min(limit, accounts.Credits());
 	SetReputationConditions();
 	// Clear any existing ships: conditions. (Note: '!' = ' ' + 1.)
 	auto first = conditions.lower_bound("ships: ");
@@ -2246,6 +2247,12 @@ void PlayerInfo::UpdateAutoConditions()
 			conditions["passenger space"] += ship->Attributes().Get("bunks") - ship->RequiredCrew();
 			++conditions["ships: " + ship->Attributes().Category()];
 		}
+	
+	// Conditions for your fleet's attractiveness to pirates:
+	pair<double, double> factors = RaidFleetFactors();
+	conditions["cargo attractiveness"] = factors.first;
+	conditions["armament deterrence"] = factors.second;
+	conditions["pirate attraction"] = factors.first - factors.second;
 }
 
 

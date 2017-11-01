@@ -211,7 +211,7 @@ mission "Smuggler's Den: Payment"
 	landing
 	source
 		government "Republic" "Free Worlds" "Syndicate" "Quarg" "Neutral"
-		near Sol 1 1000
+		near Sol 100
 	to offer
 		has "event: smuggler's den: payment"
 	
@@ -282,11 +282,10 @@ mission "Expedition to Hope 2"
 	landing
 	name "Expedition to Hope"
 	description "Transport the team of scientists home to <destination>."
-	source
-		Hope
+	source Hope
 	destination
 		distance 2 5
-		govenment Republic "Free Worlds" Neutral
+		government Republic "Free Worlds" Neutral
 	to offer
 		has "Expedition to Hope 1: done"
 	passengers 4
@@ -1236,7 +1235,7 @@ mission "Rim Archaeology 6"
 	landing
 	source
 		government "Republic" "Free Worlds" "Syndicate" "Independent" "Neutral"
-		near Sol 1 1000
+		near Sol 100
 		attributes spaceport
 	to offer
 		has "event: rim archaeology results"
@@ -1567,7 +1566,7 @@ mission "Migrant Workers 1"
 	source
 		attributes "dirt belt"
 		attributes "farming"
-		near "Zeta Aquilae" 1 1000
+		near "Zeta Aquilae" 1 100
 	destination Rand
 	to offer
 		random < 5
@@ -1753,7 +1752,7 @@ mission "Terraforming 3"
 				`	"Are you suggesting melting the ice caps somehow?"`
 					goto melting
 			label rotate
-			`	"Of course not," she says. But what we can do is introduce a sudden variation in the planet's climate that will allow water to be distributed more evenly across the surface again."`
+			`	"Of course not," she says. "But what we can do is introduce a sudden variation in the planet's climate that will allow water to be distributed more evenly across the surface again."`
 				goto danger
 			label melting
 			`	"That would be the traditional terraforming approach," she says, "using orbital mirrors, or geothermal power, or something similar to evaporate the ice caps at a faster rate than new ice is being deposited. That approach would take a century or so."`

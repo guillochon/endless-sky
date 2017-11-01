@@ -65,11 +65,18 @@ void ShopPanel::Step()
 	if(player.Ships().size() > 1)
 		DoHelp("multiple ships");
 	// Perform autoscroll to bring item details into view.
-	if(scrollDetailsIntoView && selectedBottomY > 0.)
+	if(scrollDetailsIntoView && mainDetailHeight > 0)
 	{
-		double offY = Screen::Bottom() - selectedBottomY;
-		if(offY < 0.)
-			DoScroll(max(-30., offY));
+		int mainTopY = Screen::Top();
+		int mainBottomY = Screen::Bottom() - 40;
+		double selectedBottomY = selectedTopY + TileSize() + mainDetailHeight;
+		// Scroll up until the bottoms match.
+		if(selectedBottomY > mainBottomY)
+			DoScroll(max(-30., mainBottomY - selectedBottomY));
+		// Scroll down until the bottoms or the tops match.
+		else if(selectedBottomY < mainBottomY && selectedTopY < mainTopY)
+			DoScroll(min(30., min(mainTopY - selectedTopY, mainBottomY - selectedBottomY)));
+		// Details are in view.
 		else
 			scrollDetailsIntoView = false;
 	}
@@ -79,6 +86,8 @@ void ShopPanel::Step()
 
 void ShopPanel::Draw()
 {
+	const double oldSelectedTopY = selectedTopY;
+	
 	glClear(GL_COLOR_BUFFER_BIT);
 	
 	// Clear the list of clickable zones.
@@ -120,6 +129,18 @@ void ShopPanel::Draw()
 		Point size(sprite->Width() * scale, sprite->Height() * scale);
 		OutlineShader::Draw(sprite, dragPoint, size, selected);
 	}
+
+	if(sameSelectedTopY)
+	{
+		sameSelectedTopY = false;
+		if(selectedTopY != oldSelectedTopY)
+		{
+			// Redraw with the same selected top (item in the same place).
+			mainScroll = max(0., min(maxMainScroll, mainScroll + selectedTopY - oldSelectedTopY));
+			Draw();
+		}
+	}
+	mainScroll = min(mainScroll, maxMainScroll);
 }
 
 
@@ -159,6 +180,10 @@ void ShopPanel::DrawSidebar()
 	if(shipsHere < 4)
 		point.X() += .5 * ICON_TILE * (4 - shipsHere);
 	
+	// Check whether flight check tooltips should be shown.
+	Point mouse = GetUI()->GetMouse();
+	warningType.clear();
+	
 	static const Color selected(.8, 1.);
 	static const Color unselected(.4, 1.);
 	for(const shared_ptr<Ship> &ship : player.Ships())
@@ -185,14 +210,19 @@ void ShopPanel::DrawSidebar()
 			OutlineShader::Draw(sprite, point, size, isSelected ? selected : unselected);
 		}
 		
+		zones.emplace_back(point, Point(ICON_TILE, ICON_TILE), ship.get());
+		
 		string check = ship->FlightCheck();
 		if(!check.empty())
 		{
 			const Sprite *icon = SpriteSet::Get(check.back() == '!' ? "ui/error" : "ui/warning");
 			SpriteShader::Draw(icon, point + .5 * Point(ICON_TILE - icon->Width(), ICON_TILE - icon->Height()));
+			if(zones.back().Contains(mouse))
+			{
+				warningType = check;
+				warningPoint = zones.back().TopLeft();
+			}
 		}
-		
-		zones.emplace_back(point, Point(ICON_TILE, ICON_TILE), ship.get());
 		
 		point.X() += ICON_TILE;
 	}
@@ -329,6 +359,12 @@ void ShopPanel::DrawMain()
 		bool isEmpty = true;
 		for(const string &name : it->second)
 		{
+			bool isSelected = (selectedShip && GameData::Ships().Get(name) == selectedShip)
+				|| (selectedOutfit && GameData::Outfits().Get(name) == selectedOutfit);
+			
+			if(isSelected)
+				selectedTopY = point.Y() - TILE_SIZE / 2;
+			
 			if(!HasItem(name))
 				continue;
 			isEmpty = false;
@@ -336,9 +372,6 @@ void ShopPanel::DrawMain()
 				break;
 			
 			DrawItem(name, point, scrollY);
-			
-			bool isSelected = (selectedShip && GameData::Ships().Get(name) == selectedShip)
-				|| (selectedOutfit && GameData::Outfits().Get(name) == selectedOutfit);
 			
 			if(isSelected)
 			{
@@ -363,7 +396,6 @@ void ShopPanel::DrawMain()
 				
 				mainDetailHeight = DrawDetails(center);
 				nextY += mainDetailHeight;
-				selectedBottomY = nextY - TILE_SIZE / 2;
 			}
 			
 			point.X() += columnWidth;
@@ -405,7 +437,6 @@ void ShopPanel::DrawMain()
 	// What amount would mainScroll have to equal to make nextY equal the
 	// bottom of the screen? (Also leave space for the "key" at the bottom.)
 	maxMainScroll = max(0., nextY + mainScroll - Screen::Height() / 2 - TILE_SIZE / 2 + 40.);
-	mainScroll = min(mainScroll, maxMainScroll);
 	
 	PointerShader::Draw(Point(Screen::Right() - 10 - SIDE_WIDTH, Screen::Top() + 10),
 		Point(0., -1.), 10., 10., 5., Color(mainScroll > 0 ? .8 : .2, 0.));
@@ -456,6 +487,20 @@ bool ShopPanel::CanSellMultiple() const
 
 void ShopPanel::DrawKey()
 {
+}
+
+
+
+void ShopPanel::ToggleForSale()
+{
+	sameSelectedTopY = true;
+}
+
+
+
+void ShopPanel::ToggleCargo()
+{
+	sameSelectedTopY = true;
 }
 
 
@@ -546,11 +591,28 @@ bool ShopPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 			if(allWereSelected)
 				added.clear();
 			
+			const System *here = player.GetSystem();
 			for(Ship *ship : added)
-				playerShips.insert(ship);
+				if(!ship->IsDisabled() && ship->GetSystem() == here)
+					playerShips.insert(ship);
+			
+			if(!playerShips.count(playerShip))
+				playerShip = playerShips.empty() ? nullptr : *playerShips.begin();
 		}
 		else
-			playerShips = player.GetGroup(group);
+		{
+			// Change the selection to the desired ships, if they are landed here.
+			playerShips.clear();
+			set<Ship *> wanted = player.GetGroup(group);
+			
+			const System *here = player.GetSystem();
+			for(Ship *ship : wanted)
+				if(!ship->IsDisabled() && ship->GetSystem() == here)
+					playerShips.insert(ship);
+			
+			if(!playerShips.count(playerShip))
+				playerShip = playerShips.empty() ? nullptr : *playerShips.begin();
+		}
 	}
 	else
 		return false;
@@ -656,14 +718,13 @@ bool ShopPanel::Click(int x, int y, int clicks)
 			else
 				selectedOutfit = zone.GetOutfit();
 			
+			// Scroll details into view in Step() when the height is known.
 			scrollDetailsIntoView = true;
-			// Reset selectedBottomY so that Step() waits for it to be updated
-			// with the proper value computed in Draw().
-			selectedBottomY = 0.;
+			mainDetailHeight = 0;
 			mainScroll = max(0., mainScroll + zone.ScrollY());
 			return true;
 		}
-		
+	
 	return true;
 }
 
@@ -683,18 +744,6 @@ bool ShopPanel::Hover(int x, int y)
 		shipInfo.Hover(point);
 		outfitInfo.Hover(point);
 	}
-	
-	warningType.clear();
-	for(const Zone &zone : zones)
-		if(zone.Contains(point) && zone.GetShip())
-		{
-			warningType = zone.GetShip()->FlightCheck();
-			if(!warningType.empty())
-			{
-				warningPoint = zone.TopLeft();
-				break;
-			}
-		}
 	
 	dragMain = (x < Screen::Right() - SIDE_WIDTH);
 	return true;
@@ -843,6 +892,7 @@ void ShopPanel::SideSelect(int count)
 	}
 	
 	
+	const System *here = player.GetSystem();
 	if(count < 0)
 	{
 		while(count)
@@ -851,7 +901,7 @@ void ShopPanel::SideSelect(int count)
 				it = player.Ships().end();
 			--it;
 			
-			if((*it)->GetSystem() == player.GetSystem() && !(*it)->IsDisabled())
+			if((*it)->GetSystem() == here && !(*it)->IsDisabled())
 				++count;
 		}
 	}
@@ -863,7 +913,7 @@ void ShopPanel::SideSelect(int count)
 			if(it == player.Ships().end())
 				it = player.Ships().begin();
 			
-			if((*it)->GetSystem() == player.GetSystem() && !(*it)->IsDisabled())
+			if((*it)->GetSystem() == here && !(*it)->IsDisabled())
 				--count;
 		}
 	}
@@ -880,10 +930,11 @@ void ShopPanel::SideSelect(Ship *ship)
 	if(shift)
 	{
 		bool on = false;
+		const System *here = player.GetSystem();
 		for(const shared_ptr<Ship> &other : player.Ships())
 		{
 			// Skip any ships that are "absent" for whatever reason.
-			if(other->GetSystem() != player.GetSystem() || other->IsDisabled())
+			if(other->GetSystem() != here || other->IsDisabled())
 				continue;
 			
 			if(other.get() == ship || other.get() == playerShip)
@@ -904,6 +955,7 @@ void ShopPanel::SideSelect(Ship *ship)
 	
 	playerShip = ship;
 	playerShips.insert(playerShip);
+	sameSelectedTopY = true;
 }
 
 

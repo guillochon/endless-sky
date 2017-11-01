@@ -541,10 +541,12 @@ void AI::Step(const PlayerInfo &player)
 		}
 		
 		// Attacking a hostile ship and stopping to be refueled are more important than mining.
-		if(isPresent && personality.IsMining() && !target && !isStranded)
+		if(isPresent && personality.IsMining() && !target && !isStranded && maxMinerCount)
 		{
-			// Miners with free cargo space and available mining time should mine.
-			if(it->Cargo().Free() >= 5 && IsArmed(*it) && ++miningTime[&*it] < 3600 && ++minerCount < maxMinerCount)
+			// Miners with free cargo space and available mining time should mine. Mission NPCs
+			// should mine even if there are other miners or they have been mining a while.
+			if(it->Cargo().Free() >= 5 && IsArmed(*it) && (it->IsSpecial()
+					|| (++miningTime[&*it] < 3600 && ++minerCount < maxMinerCount)))
 			{
 				if(it->HasBays())
 					command |= Command::DEPLOY;
@@ -637,8 +639,9 @@ void AI::Step(const PlayerInfo &player)
 		}
 		else if(FollowOrders(*it, command))
 		{
-			// If this is an escort and it has orders to follow, no need for the
-			// AI to figure out what action it must perform.
+			// If this is an escort and it followed orders, its only final task
+			// is to convert completed MOVE_TO orders into HOLD_POSITION orders.
+			UpdateOrders(*it);
 		}
 		// Hostile "escorts" (i.e. NPCs that are trailing you) only revert to
 		// escort behavior when in a different system from you. Otherwise,
@@ -700,6 +703,23 @@ void AI::Step(const PlayerInfo &player)
 		
 		it->SetCommands(command);
 	}
+}
+
+
+
+// Get the in-system strength of each government's allies and enemies.
+int64_t AI::AllyStrength(const Government *government)
+{
+	auto it = allyStrength.find(government);
+	return (it == allyStrength.end() ? 0 : it->second);
+}
+
+
+
+int64_t AI::EnemyStrength(const Government *government)
+{
+	auto it = enemyStrength.find(government);
+	return (it == enemyStrength.end() ? 0 : it->second);
 }
 
 
@@ -1706,10 +1726,23 @@ void AI::Attack(Ship &ship, Command &command, const Ship &target)
 	Point d = target.Position() - ship.Position();
 	if(shortestRange > 1000. && d.Length() < .5 * shortestRange)
 	{
-		command.SetTurn(TurnToward(ship, -d));
-		if(ship.Facing().Unit().Dot(d) <= 0.)
-			command |= Command::FORWARD;
-		return;
+		// If this ship can use reverse thrusters, consider doing so.
+		double reverseSpeed = ship.MaxReverseVelocity();
+		if(reverseSpeed && (reverseSpeed >= min(target.MaxVelocity(), ship.MaxVelocity())
+				|| target.Velocity().Dot(-d.Unit()) <= reverseSpeed))
+		{
+			command.SetTurn(TurnToward(ship, d));
+			if(ship.Facing().Unit().Dot(d) >= 0.)
+				command |= Command::BACK;
+			return;
+		}
+		else
+		{
+			command.SetTurn(TurnToward(ship, -d));
+			if(ship.Facing().Unit().Dot(d) <= 0.)
+				command |= Command::FORWARD;
+			return;
+		}
 	}
 	
 	MoveToAttack(ship, command, target);
@@ -1724,7 +1757,7 @@ void AI::MoveToAttack(Ship &ship, Command &command, const Body &target)
 	// First of all, aim in the direction that will hit this target.
 	command.SetTurn(TurnToward(ship, TargetAim(ship, target)));
 	
-	// Calculate this ship's "turning radius; that is, the smallest circle it
+	// Calculate this ship's "turning radius"; that is, the smallest circle it
 	// can make while at full speed.
 	double stepsInFullTurn = 360. / ship.TurnRate();
 	double circumference = stepsInFullTurn * ship.Velocity().Length();
@@ -3140,6 +3173,13 @@ void AI::IssueOrders(const PlayerInfo &player, const Orders &newOrders, const st
 				offset = offset.Unit() * maxSquadOffset;
 			existing.point += offset;
 		}
+		else if(existing.type == Orders::HOLD_POSITION)
+		{
+			bool shouldReverse = false;
+			// Set the point this ship will "guard.", so it can return
+			// to it if knocked away by projectiles / explosions.
+			existing.point = StoppingPoint(*ship, Point(), shouldReverse);
+		}
 	}
 	if(!gaveOrder)
 		return;
@@ -3151,5 +3191,31 @@ void AI::IssueOrders(const PlayerInfo &player, const Orders &newOrders, const st
 		Messages::Add(who + "no longer " + description);
 		for(const Ship *ship : ships)
 			orders.erase(ship);
+	}
+}
+
+
+
+// Change the ship's order based on its current fulfillment of the order.
+void AI::UpdateOrders(const Ship &ship)
+{
+	// This should only be called for ships with orders that can be carried out.
+	auto it = orders.find(&ship);
+	if(it == orders.end())
+		return;
+	
+	Orders &order = it->second;
+	if(order.type == Orders::MOVE_TO && ship.GetSystem() == order.targetSystem)
+	{
+		// If nearly stopped on the desired point, switch to a HOLD_POSITION order.
+		if(ship.Position().Distance(order.point) < 20. && ship.Velocity().Length() < .001)
+			order.type = Orders::HOLD_POSITION;
+	}
+	else if(order.type == Orders::HOLD_POSITION && ship.Position().Distance(order.point) > 20.)
+	{
+		// If far from the defined target point, return via a MOVE_TO order.
+		order.type = Orders::MOVE_TO;
+		// Ensure the system reference is maintained.
+		order.targetSystem = ship.GetSystem();
 	}
 }

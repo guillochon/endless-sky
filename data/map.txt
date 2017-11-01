@@ -24282,7 +24282,7 @@ planet "Carbuncle Station"
 		fleet "Large Republic" 10
 
 planet "Ceaseless Toil"
-	attributes saryd factory
+	attributes saryd factory uninhabited
 	landscape land/canyon01
 	description `The Saryds prefer to build their largest factories on sun-drenched, uninhabitable worlds, in order to allow more hospitable planets to be used for residences and recreation. Where possible, their factories harness solar power: either using mirrors to concentrate sunlight for solar foundries, or collecting energy through large fields of solar panels. The factories are almost entirely maintained by robots, which are capable not only of repairing damage but also of constructing entire new factories according to predefined plans.`
 	description `	The solar collectors are mounted on frames about ten meters above the shifting sand dunes. In addition to turning to face the sun, they can be turned upside-down as necessary to dump off any sand that accumulates on them.`
@@ -24310,7 +24310,7 @@ planet "Charybdis Station"
 	attributes core station
 	landscape land/space0
 	music ambient/machinery
-	description `Charybdis station is privately owned by the Syndicate. It is a massive deuterium refinery, with harvester drones constantly flying in and out to scoop hydrogen gas out of the upper atmosphere of the planet below. If you need to repair or refuel in this system, you will need to visit the neighboring world of Delve, instead of this station.`
+	description `Charybdis Station is privately owned by the Syndicate. It is a massive deuterium refinery, with harvester drones constantly flying in and out to scoop hydrogen gas out of the upper atmosphere of the planet below. If you need to repair or refuel in this system, you will need to visit the neighboring world of Delve, instead of this station.`
 	"required reputation" 20
 	bribe 0.05
 	security 0.6
@@ -24569,7 +24569,7 @@ planet "Devru Kaska"
 	security 0
 
 planet "Diligent Hand"
-	attributes saryd factory
+	attributes saryd factory uninhabited
 	landscape land/badlands5
 	description `On this factory world, robotic workers operate the factories, repair themselves, and keep the solar power stations free of sand with very little direction or assistance from their Saryd creators. Each factory complex has its own landing pads for the freighters that drop off raw materials and receive the processed goods.`
 	"required reputation" 15
@@ -24661,11 +24661,14 @@ planet "Elek Kartanu"
 
 planet "Ember Reaches"
 	attributes "requires: quantum keystone"
+	description ""
 
 planet "Ember Threshold"
 	attributes "requires: quantum keystone"
+	description ""
 
 planet "Ember Wormhole"
+	description ""
 
 planet "Esayaku Fen"
 	attributes korath
@@ -24843,7 +24846,7 @@ planet "Flowing Fields"
 planet Follower
 	attributes paradise factory
 	landscape land/city10
-	description `Follower is on the edge of the "paradise planets" region of space; not really one of them yet, but aspiring to be. It is prosperous, but from manufacturing rather than law or finance or venture capitalism. A significant fraction of the local taxes collected here are being spent on terraforming, raising global temperatures and reducing seasonal fluctuations. The goods produced here always have a ready market to purchase them, so Follower's job economy is considered very stable.`
+	description `Follower is on the edge of the Paradise Planets region of space: not really one of them yet, but aspiring to be. It is prosperous, but from manufacturing rather than law or finance or venture capitalism. A significant fraction of the local taxes collected here are being spent on terraforming, raising global temperatures and reducing seasonal fluctuations. The goods produced here always have a ready market to purchase them, so Follower's job economy is considered very stable.`
 	description `	As one of the few planets still actively engaged in terraforming, Follower has been the location of several experiments with new technology, trying to leapfrog the centuries-slow process that other worlds have gone through. Unfortunately most of these experiments have failed, sometimes spectacularly.`
 	spaceport `The spaceport is a single skyscraper, fifty floors tall and as wide as it is high, with the floors twisting around each other in a helical patterns so that on each level, the landing bays are approached from a slightly different angle. The whole structure is built of steel and gleaming glass. Inside, the soaring ceilings give you more of a sense of opulence than of comfort.`
 	shipyard "Betelgeuse Basics"
@@ -25443,7 +25446,7 @@ planet "Leviathan Station"
 	attributes deep station
 	landscape land/space2
 	music ambient/machinery
-	description `Leviathan station is the Deep's most productive deuterium harvesting station. Built nearly four hundred years ago, the station was one of the first to fuel the massive cargo caravans sent out from the Deep back when this was one of the only regions of the galaxy with a prosperous economy and a democratic government. Today it remains under government control, because the citizens of the Deep are wary of any private corporation controlling the industry that makes interstellar travel possible.`
+	description `Leviathan Station is the Deep's most productive deuterium harvesting station. Built nearly four hundred years ago, the station was one of the first to fuel the massive cargo caravans sent out from the Deep back when this was one of the only regions of the galaxy with a prosperous economy and a democratic government. Today it remains under government control, because the citizens of the Deep are wary of any private corporation controlling the industry that makes interstellar travel possible.`
 	spaceport `This is a refinery, not a tourist destination. You were allowed to dock here, and the massive cafeteria used by the local workers is available to you if you want to eat, but beyond that no one seems particularly interested in entertaining you or interacting with you.`
 	spaceport `	On the other hand, you get some small satisfaction from knowing that you refueled your ship with deuterium that just yesterday was most likely still floating around in the upper cloud banks of the gas giant below.`
 	"required reputation" 10
@@ -25721,7 +25724,7 @@ planet "Muninn Station"
 	attributes deep station military
 	landscape land/space7
 	music ambient/machinery
-	description `Muninn station, along with its brother station Huginn, serves as the gateway to the region of space known as the Deep. They both harvest and refine deuterium for use as rocket fuel, and in addition Muninn station is used as a military base for the local defense fleets.`
+	description `Muninn Station, along with its brother station Huginn, serves as the gateway to the region of space known as the Deep. They both harvest and refine deuterium for use as rocket fuel, and in addition Muninn Station is used as a military base for the local defense fleets.`
 	spaceport `Most of the station is closed off to you, but you are told that if you want you may visit the large military mess hall, where hundreds of Navy members and local militia sit and eat or watch the news videos. You would normally expect a military mess hall to be a noisy, rowdy place, but this one is almost eerily silent, with a few quiet conversations going on in the corners but otherwise no noise except the video screens.`
 	"required reputation" 10
 	bribe 0.05
@@ -25749,7 +25752,7 @@ planet Mutiny
 	security 0
 
 planet Mystery
-	attributes saryd moon
+	attributes saryd moon uninhabited
 	landscape land/canyon05
 	description `The Saryd culture's fascination with the movement of the stars and planets can perhaps be attributed to the fact that their homeworld is orbited by two moons, which cause a complex and seemingly unpredictable cycle of tides as well as a variety of subtle effects on the circadian rhythms of the creatures that evolved on Saros. Saryd homes on other worlds often have night lighting cycles designed to mimic the moons of their homeworld.`
 	"required reputation" 15
@@ -26031,7 +26034,7 @@ planet "Oberon Station"
 	attributes core station
 	landscape land/station1
 	music ambient/machinery
-	description `Oberon station is a deuterium refinery owned and operated by the Syndicate, and aside from a few docking bays for visiting ships to use in an emergency, the rest of the station is sealed off to non-employees.`
+	description `Oberon Station is a deuterium refinery owned and operated by the Syndicate, and aside from a few docking bays for visiting ships to use in an emergency, the rest of the station is sealed off to non-employees.`
 	"required reputation" 10
 	bribe 0.03
 	security 0.4
@@ -26217,6 +26220,7 @@ planet Relic
 
 planet "Remnant Wormhole"
 	attributes "requires: quantum keystone"
+	description ""
 
 planet "Remote Blue"
 	attributes kimek urban
@@ -26245,7 +26249,7 @@ planet Reunion
 		fleet "Large Syndicate" 17
 
 planet Revelation
-	attributes saryd moon
+	attributes saryd moon uninhabited
 	landscape land/canyon0
 	description `The Saryds are the only known species who successfully visited another world when their technology was still in the age of steam. The scientist who first landed here was piloting a ramshackle rocket ship of dizzying complexity. Modern analysis of his plans indicates that his flight had less than a one in ten thousand chance of success. This has led to speculation that he was either secretly assisted by friendly aliens, or completely insane, or possibly both.`
 	"required reputation" 15
@@ -27208,6 +27212,7 @@ planet Winter
 		fleet "Large Militia" 5
 
 planet "Wormhole Alpha"
+	description ""
 
 planet "Wyvern Station"
 	attributes rim station

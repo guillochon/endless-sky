@@ -39,6 +39,7 @@ class Planet;
 class Projectile;
 class StellarObject;
 class System;
+class Visual;
 
 
 
@@ -153,9 +154,8 @@ public:
 	void SetCommands(const Command &command);
 	const Command &Commands() const;
 	// Move this ship. A ship may create effects as it moves, in particular if
-	// it is in the process of blowing up. If this returns false, the ship
-	// should be deleted.
-	bool Move(std::list<Effect> &effects, std::list<std::shared_ptr<Flotsam>> &flotsam);
+	// it is in the process of blowing up.
+	void Move(std::vector<Visual> &visuals, std::list<std::shared_ptr<Flotsam>> &flotsam);
 	// Launch any ships that are ready to launch.
 	void Launch(std::list<std::shared_ptr<Ship>> &ships);
 	// Check if this ship is boarding another ship. If it is, it either plunders
@@ -172,9 +172,9 @@ public:
 	// Fire any weapons that are ready to fire. If an anti-missile is ready,
 	// instead of firing here this function returns true and it can be fired if
 	// collision detection finds a missile in range.
-	bool Fire(std::list<Projectile> &projectiles, std::list<Effect> &effects);
+	bool Fire(std::vector<Projectile> &projectiles, std::vector<Visual> &visuals);
 	// Fire an anti-missile. Returns true if the missile was killed.
-	bool FireAntiMissile(const Projectile &projectile, std::list<Effect> &effects);
+	bool FireAntiMissile(const Projectile &projectile, std::vector<Visual> &visuals);
 	
 	// Get the system this ship is in.
 	const System *GetSystem() const;
@@ -260,6 +260,7 @@ public:
 	double TurnRate() const;
 	double Acceleration() const;
 	double MaxVelocity() const;
+	double MaxReverseVelocity() const;
 	
 	// This ship just got hit by the given projectile. Take damage according to
 	// what sort of weapon the projectile it. The return value is a ShipEvent
@@ -362,9 +363,9 @@ private:
 	double BestFuel(const std::string &type, const std::string &subtype, double defaultFuel) const;
 	// Create one of this ship's explosions, within its mask. The explosions can
 	// either stay over the ship, or spread out if this is the final explosion.
-	void CreateExplosion(std::list<Effect> &effects, bool spread = false);
+	void CreateExplosion(std::vector<Visual> &visuals, bool spread = false);
 	// Place a "spark" effect, like ionization or disruption.
-	void CreateSparks(std::list<Effect> &effects, const std::string &name, double amount);
+	void CreateSparks(std::vector<Visual> &visuals, const std::string &name, double amount);
 	
 	
 private:
@@ -419,6 +420,7 @@ private:
 	// Installed outfits, cargo, etc.:
 	Outfit attributes;
 	Outfit baseAttributes;
+	bool addAttributes = false;
 	const Outfit *explosionWeapon = nullptr;
 	std::map<const Outfit *, int> outfits;
 	CargoHold cargo;
